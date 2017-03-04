@@ -1,6 +1,5 @@
 # Initialize Flask
-from flask import Flask, render_template, jsonify, request
-import sqlite3
+from flask import Flask, render_template, json, request
 
 # Import initdb for database helper functions
 import initdb
@@ -16,37 +15,32 @@ def index():
     return render_template('home.html')
 
 
+# Page with form to add new food
 @app.route('/enternew')
 def enternew():
     return render_template('food.html')
-    # return jsonify(name=['name'], calories=['calories'],
-    #                cuisine=['cuisine'], is_vegetarian=['is_vegetarian'],
-    #                is_gluten_free=['is_gluten_free'])
 
 
+# Add new food to database and return success page
 @app.route('/addfood', methods=['GET', 'POST'])
 def addfood():
     result = request.form
-    query = 'INSERT INTO foods VALUES (?,?,?,?,?)'
-    connection = sqlite3.connect('database.db')
-    cursor = connection.cursor()
-    cursor.execute(query, [result['name'], result['calories'], result['cuisine'], result['is_vegetarian'], result['is_gluten_free']])
-    connection.commit()
-    connection.close()
-
-    return render_template('result.html')
+    engine = initdb.initialize_database()
+    initdb.insert_new_food(engine,
+                           result['name'],
+                           result['calories'],
+                           result['cuisine'],
+                           result['is_vegetarian'],
+                           result['is_gluten_free'])
+    message = 'New food added'
+    return render_template('result.html', message=message)
 
 
 @app.route('/favorite', methods=['GET'])
 def favorite():
-    query = "SELECT name FROM foods WHERE name = 'Pizza'"
-    connection = sqlite3.connect('database.db')
-    cursor = connection.cursor()
-    cursor.execute(query)
-    results = cursor.fetchall()
-    connection.close()
-
-    return jsonify(results)
+    engine = initdb.initialize_database()
+    results = initdb.get_favorite_food(engine, 'pizza')
+    return json.dumps([(dict(row.items())) for row in results])
 
 
 # `/search` should accept a `GET` request and then access the query parameter `name`
@@ -54,12 +48,7 @@ def favorite():
 # matching `name` field.  Return the results as `JSON`.
 @app.route('/search', methods=['GET'])
 def search():
-    result = request.form
-    query = "SELECT * FROM foods WHERE name = '?'"
-    connection = sqlite3.connect('database.db')
-    cursor = connection.cursor()
-    cursor.execute(query, [result['name']])
-    results = cursor.fetchall()
-    connection.close()
-
-    return jsonify(results)
+    name = request.args.get('name')
+    engine = initdb.initialize_database()
+    results = initdb.get_favorite_food(engine, name)
+    return json.dumps([(dict(row.items())) for row in results])
